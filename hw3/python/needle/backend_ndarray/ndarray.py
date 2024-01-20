@@ -247,7 +247,11 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if prod(self.shape) != prod(new_shape):
+            raise ValueError("The product of the new shape should be the same as that of the current shape")
+        return NDArray.make(
+            new_shape, strides=list(new_shape[1:])+[1], device=self.device, handle=self._handle
+        )
         ### END YOUR SOLUTION
 
     def permute(self, new_axes):
@@ -272,7 +276,7 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_shape = 
         ### END YOUR SOLUTION
 
     def broadcast_to(self, new_shape):
