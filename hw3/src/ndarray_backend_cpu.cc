@@ -62,7 +62,31 @@ void Compact(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shap
    *  function will implement here, so we won't repeat this note.)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  // TODO: Unify identifier and increase readability  
+  size_t total_size = 1;
+  for (auto i: shape) {
+    total_size *= i;
+  }
+  // construct pseudo strides from shape as if out is a compact array
+  std::vector<int32_t> pseudo_strides(shape.size());
+  for (size_t i=0; i<shape.size(); ++i) {
+    pseudo_strides[i] = 1;
+    for (size_t j=i+1; j<shape.size(); ++j) pseudo_strides[i] *= shape[j];
+  }
+  assert (pseudo_strides[0]*shape[0] == total_size);
+  // assert (total_size == a.size && "size not equal");
+  // to make an dimension-agnostic implementation
+  // we iterate over a flat size, and use the shape to calculate the exact index
+  for (size_t i=0; i<total_size; ++i) {
+    // convert the global index to multi-dimensional index
+    size_t global_index = i;
+    size_t real_index = 0;                  
+    for (size_t j=0; j<shape.size(); ++j) {
+      real_index += global_index / pseudo_strides[j] * strides[j];
+      global_index %= pseudo_strides[j];
+    }
+    out->ptr[i] = a.ptr[real_index+offset];
+  }
   /// END SOLUTION
 }
 
@@ -79,7 +103,28 @@ void EwiseSetitem(const AlignedArray& a, AlignedArray* out, std::vector<int32_t>
    *   offset: offset of the *out* array (not a, which has zero offset, being compact)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  // assert(false && "Not Implemented");
+  size_t total_size = 1;
+  for (auto i: shape) {
+    total_size *= i;
+  }
+  // construct pseudo strides from shape as if out is a compact array
+  std::vector<int32_t> pseudo_strides(shape.size());
+  for (size_t i=0; i<shape.size(); ++i) {
+    pseudo_strides[i] = 1;
+    for (size_t j=i+1; j<shape.size(); ++j) pseudo_strides[i] *= shape[j];
+  }
+  // printf("total size from shape:%ld\ntotal size from quering a:%ld", total_size, a.size);
+  for (size_t i=0; i<total_size; ++i) {
+    size_t global_index = i;
+    // convert the global index to strided index
+    size_t real_index = 0;
+    for (size_t j=0; j<shape.size(); ++j) {
+      real_index += global_index / pseudo_strides[j]* strides[j];
+      global_index %= pseudo_strides[j];
+    }
+    out->ptr[real_index+offset] = a.ptr[i];
+  }
   /// END SOLUTION
 }
 
@@ -100,7 +145,23 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out, std::vect
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  // assert(false && "Not Implemented");
+  // construct pseudo strides from shape as if out is a compact array
+  std::vector<int32_t> pseudo_strides(shape.size());
+  for (size_t i=0; i<shape.size(); ++i) {
+    pseudo_strides[i] = 1;
+    for (size_t j=i+1; j<shape.size(); ++j) pseudo_strides[i] *= shape[j];
+  }
+  // printf("size passed in: %d\nsize calculated: %d", size, shape[0]*pseudo_strides[0]);
+  for (size_t i=0; i<size; ++i) {
+    size_t global_index = i;
+    size_t real_index = 0;
+    for (size_t j=0; j<shape.size(); ++j) {
+      real_index += global_index / pseudo_strides[j] * strides[j];
+      global_index %= pseudo_strides[j];
+    }
+    out->ptr[real_index + offset] = val;
+  }
   /// END SOLUTION
 }
 
@@ -160,7 +221,14 @@ void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uin
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (size_t i=0; i<m; ++i) {
+    for (size_t j=0; j<p; ++j) {
+      out->ptr[i*p + j] = 0;
+      for (size_t k=0; k<n; ++k) {
+        out->ptr[i*p + j] += a.ptr[i*n + k] * b.ptr[k*p + j];
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -287,6 +355,9 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
   m.def("scalar_setitem", ScalarSetitem);
   m.def("ewise_add", EwiseAdd);
   m.def("scalar_add", ScalarAdd);
+
+  // register finished function in the pybind module
+  m.def("matmul", Matmul);
 
   // m.def("ewise_mul", EwiseMul);
   // m.def("scalar_mul", ScalarMul);

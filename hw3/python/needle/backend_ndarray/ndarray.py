@@ -202,6 +202,8 @@ class NDArray:
     def is_compact(self):
         """Return true if array is compact in memory and internal size equals product
         of the shape dimensions"""
+        # the array is only compact when its strides are compatible with its shape
+        # and the product of its shape equals its size (could this ever be false?)
         return (
             self._strides == self.compact_strides(self._shape)
             and prod(self.shape) == self._handle.size
@@ -212,6 +214,7 @@ class NDArray:
         if self.is_compact():
             return self
         else:
+            # if the array itself is not compact, create and return a new compact array
             out = NDArray.make(self.shape, device=self.device)
             self.device.compact(
                 self._handle, out._handle, self.shape, self.strides, self._offset
@@ -246,11 +249,11 @@ class NDArray:
             NDArray : reshaped array; this will point to thep
         """
 
-        ### BEGIN YOUR SOLUTION
+        ### BEGIN YOUR SOLUTIONwhich
         if prod(self.shape) != prod(new_shape):
             raise ValueError("The product of the new shape should be the same as that of the current shape")
         return NDArray.make(
-            new_shape, strides=list(new_shape[1:])+[1], device=self.device, handle=self._handle
+            new_shape, strides=NDArray.compact_strides(new_shape), device=self.device, handle=self._handle
         )
         ### END YOUR SOLUTION
 
@@ -276,7 +279,11 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        new_shape = 
+        # pemute((0, 3, 1, 2))
+        new_shape = tuple([self.shape[i] for i in new_axes])
+        new_strides = tuple([self.strides[i] for i in new_axes])
+        return NDArray.make(new_shape, new_strides, device=self.device, handle=self._handle)
+        
         ### END YOUR SOLUTION
 
     def broadcast_to(self, new_shape):
@@ -300,7 +307,29 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # broadcast an existing dimension
+        if len(new_shape) == self.ndim:
+            new_strides = list(self.strides)
+            for i in range(self.ndim):
+                if self.shape[i] != 1:
+                    assert new_shape[i] == self.shape[i]
+                elif new_shape[i] != self.shape[i]:
+                        new_strides[i] = 0
+        # pad dimension before
+        else:
+            orig_shape = [1]*(len(new_shape)-self.ndim) + list(self.shape)
+            new_strides = [0]*(len(new_shape)-self.ndim) + list(self.strides)
+            for i in range(len(new_shape)):
+                if orig_shape[i] != 1:
+                    assert new_shape[i] == orig_shape[i]
+                elif new_shape[i] != orig_shape[i]:
+                    new_strides[i] = 0
+        
+        new_strides = tuple(new_strides)
+        return NDArray.make(
+            new_shape, new_strides, self.device, self._handle
+        )
+
         ### END YOUR SOLUTION
 
     ### Get and set elements
@@ -365,9 +394,18 @@ class NDArray:
             ]
         )
         assert len(idxs) == self.ndim, "Need indexes equal to number of dimensions"
-
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+
+        offset = self._offset
+        for i in range(self.ndim):
+            offset += self.strides[i] * idxs[i].start
+        # inclusive starting point, exclusive end point
+        new_shape = tuple([(idxs[i].stop - idxs[i].start - 1) // idxs[i].step + 1 for i in range(self.ndim)])
+        new_strides = tuple([self.strides[i] * idxs[i].step for i in range(self.ndim)])
+        return NDArray.make(
+            new_shape, new_strides, self.device, self._handle, offset
+        )
+
         ### END YOUR SOLUTION
 
     def __setitem__(self, idxs, other):
@@ -375,6 +413,8 @@ class NDArray:
         as __getitem__()."""
         view = self.__getitem__(idxs)
         if isinstance(other, NDArray):
+            ### ADDED by Jay Z
+            print(view.shape, other.shape)
             assert prod(view.shape) == prod(other.shape)
             self.device.ewise_setitem(
                 other.compact()._handle,
@@ -384,6 +424,8 @@ class NDArray:
                 view._offset,
             )
         else:
+            print(idxs)
+            print(view.shape)
             self.device.scalar_setitem(
                 prod(view.shape),
                 other,

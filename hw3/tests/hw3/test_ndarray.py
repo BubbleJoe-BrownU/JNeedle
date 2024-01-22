@@ -1,6 +1,8 @@
+import sys
 import numpy as np
 import pytest
 import mugrade
+sys.path.append("./python")
 import needle as ndl
 from needle import backend_ndarray as nd
 
@@ -194,10 +196,17 @@ def test_setitem_scalar(params, device):
     # probably tear these out using lambdas
     print(slices)
     start_ptr = A._handle.ptr()
+    np.testing.assert_allclose(A[slices].numpy(), _A[slices], atol=1e-5, rtol=1e-5)
+    # print(_A[slices].shape, _A[slices].strides)
+    # print(A[slices].shape, A[slices].strides)
+    # print(A.numpy().sum())
+    # print(_A.sum())
     _A[slices] = 4.0
     A[slices] = 4.0
     end_ptr = A._handle.ptr()
     assert start_ptr == end_ptr, "you should modify in-place"
+    # print(A.numpy().sum())
+    # print(_A.sum())
     np.testing.assert_allclose(A.numpy(), _A, atol=1e-5, rtol=1e-5)
     compare_strides(_A, A)
 
