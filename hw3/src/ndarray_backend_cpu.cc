@@ -183,6 +183,51 @@ void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
   }
 }
 
+void EwiseMul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  /**
+   * Set entries in out to be the product of corresponding entry in a and b.
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] * b.ptr[i];
+  }
+ }
+
+void ScalarMul(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entries in out to be the product of corresponding entry in a and the scalar val.
+   */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] * val;
+  }
+ }
+
+void EwiseDiv(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  /**
+   * Set entries in out to be the quotient of corresponding entry in a and b.
+   */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] / b.ptr[i];
+  }
+}
+
+void ScalarDiv(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entries in out to be the quotient of corresponding entry in a and scalar value val.
+   */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] / val;
+  }
+}
+
+void ScalarPower(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entries in out to be the power of corresponding entry in a and scalar value val.
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = pwo(a.ptr[i], val);
+  }
+}
+
 
 /**
  * In the code the follows, use the above template to create analogous element-wise
