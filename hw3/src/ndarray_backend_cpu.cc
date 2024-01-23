@@ -183,6 +183,26 @@ void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
   }
 }
 
+/**
+ * In the code the follows, use the above template to create analogous element-wise
+ * and and scalar operators for the following functions.  See the numpy backend for
+ * examples of how they should work.
+ *   - EwiseMul, ScalarMul
+ *   - EwiseDiv, ScalarDiv
+ *   - ScalarPower
+ *   - EwiseMaximum, ScalarMaximum
+ *   - EwiseEq, ScalarEq
+ *   - EwiseGe, ScalarGe
+ *   - EwiseLog
+ *   - EwiseExp
+ *   - EwiseTanh
+ *
+ * If you implement all these naively, there will be a lot of repeated code, so
+ * you are welcome (but not required), to use macros or templates to define these
+ * functions (however you want to do so, as long as the functions match the proper)
+ * signatures above.
+ */
+
 void EwiseMul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
   /**
    * Set entries in out to be the product of corresponding entry in a and b.
@@ -224,33 +244,92 @@ void ScalarPower(const AlignedArray& a, scalar_t val, AlignedArray* out) {
    * Set entries in out to be the power of corresponding entry in a and scalar value val.
   */
   for (size_t i=0; i<a.size; ++i) {
-    out->ptr[i] = pwo(a.ptr[i], val);
+    out->ptr[i] = pow(a.ptr[i], val);
   }
 }
 
 void EwiseMaximum(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
-  
+  /**
+   * Set entrie in out to be the maximum of corresponding entries in a and b.
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = (a.ptr[i] > b.ptr[i] ? a.ptr[i] : b.ptr[i]);
+  }
 }
 
-/**
- * In the code the follows, use the above template to create analogous element-wise
- * and and scalar operators for the following functions.  See the numpy backend for
- * examples of how they should work.
- *   - EwiseMul, ScalarMul
- *   - EwiseDiv, ScalarDiv
- *   - ScalarPower
- *   - EwiseMaximum, ScalarMaximum
- *   - EwiseEq, ScalarEq
- *   - EwiseGe, ScalarGe
- *   - EwiseLog
- *   - EwiseExp
- *   - EwiseTanh
- *
- * If you implement all these naively, there will be a lot of repeated code, so
- * you are welcome (but not required), to use macros or templates to define these
- * functions (however you want to do so, as long as the functions match the proper)
- * signatures above.
- */
+void ScalarMaximum(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entries in out to be the maximum of corresponding entries in a and scalar value val.
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = (a.ptr[i] > val ? a.ptr[i] : val);
+  }
+}
+
+void EwiseEq(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  /**
+   * Set entries in out to be boolean values indicating whether corresponding entries in a and b are equal
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] == b.ptr[i];
+  }
+}
+
+void ScalarEq(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entris in out to be boolean values indicating whether corresponding entries in a are equal to the scalar value val
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] == val;
+  }
+}
+
+void EwiseGe(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  /**
+   * Set entries in out to be boolean values indicating whether corresponding entries in a are greater than or equal to those in b
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] >= b.ptr[i];
+  }
+}
+
+void ScalarGe(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entries in out to be boolean values indicating whether corresponding entries in a are greater than or equal to the scalar value val
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] >= val;
+  }
+}
+
+void EwiseLog(const AlignedArray& a, AlignedArray* out) {
+  /**
+   * Set entries in out to be logarithm of corresponding entries in a 
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = log(a.ptr[i]);
+  }
+}
+
+void EwiseExp(const AlignedArray& a, AlignedArray* out) {
+  /**
+   * Set entries in out to be exponential of corresponding entries in a
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = exp(a.ptr[i]);
+  }
+}
+
+void EwiseTanh(const AlignedArray& a, AlignedArray* out) {
+  /**
+   * Set entries in out to be tangent hyperbolic of corresponding entries in a
+  */
+  for (size_t i; i<a.size; ++i) {
+    out->ptr[i] = tanh(a.ptr[i]);
+  }
+}
+
+
 
 
 void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uint32_t m, uint32_t n,
@@ -405,26 +484,26 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
   m.def("scalar_add", ScalarAdd);
 
   // register finished function in the pybind module
+  
+
+  m.def("ewise_mul", EwiseMul);
+  m.def("scalar_mul", ScalarMul);
+  m.def("ewise_div", EwiseDiv);
+  m.def("scalar_div", ScalarDiv);
+  m.def("scalar_power", ScalarPower);
+
+  m.def("ewise_maximum", EwiseMaximum);
+  m.def("scalar_maximum", ScalarMaximum);
+  m.def("ewise_eq", EwiseEq);
+  m.def("scalar_eq", ScalarEq);
+  m.def("ewise_ge", EwiseGe);
+  m.def("scalar_ge", ScalarGe);
+
+  m.def("ewise_log", EwiseLog);
+  m.def("ewise_exp", EwiseExp);
+  m.def("ewise_tanh", EwiseTanh);
+
   m.def("matmul", Matmul);
-
-  // m.def("ewise_mul", EwiseMul);
-  // m.def("scalar_mul", ScalarMul);
-  // m.def("ewise_div", EwiseDiv);
-  // m.def("scalar_div", ScalarDiv);
-  // m.def("scalar_power", ScalarPower);
-
-  // m.def("ewise_maximum", EwiseMaximum);
-  // m.def("scalar_maximum", ScalarMaximum);
-  // m.def("ewise_eq", EwiseEq);
-  // m.def("scalar_eq", ScalarEq);
-  // m.def("ewise_ge", EwiseGe);
-  // m.def("scalar_ge", ScalarGe);
-
-  // m.def("ewise_log", EwiseLog);
-  // m.def("ewise_exp", EwiseExp);
-  // m.def("ewise_tanh", EwiseTanh);
-
-  // m.def("matmul", Matmul);
   // m.def("matmul_tiled", MatmulTiled);
 
   // m.def("reduce_max", ReduceMax);
