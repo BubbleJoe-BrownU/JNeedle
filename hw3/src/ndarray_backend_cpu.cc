@@ -228,6 +228,9 @@ void ScalarPower(const AlignedArray& a, scalar_t val, AlignedArray* out) {
   }
 }
 
+void EwiseMaximum(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  
+}
 
 /**
  * In the code the follows, use the above template to create analogous element-wise
