@@ -95,10 +95,30 @@ __global__ void CompactKernel(const scalar_t* a, scalar_t* out, size_t size, Cud
    *   strides: vector of strides of out array
    *   offset: offset of out array
    */
-  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
-
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  // calculate the strides of compact array out s.t. we can locate where to assign a value
+  CudaVec compact_strides;
+  compact_strides.size = shape.size; // this is unnecessary tho I added it for consistency
+  for (size_t i=0; i<shape.size; ++i) {
+    compact_strides.data[i] = 1;
+    for (size_t j=i+1; j<shape.size; ++j) {
+      compact_strides.data[i] *= shape.data[j];
+    }
+  }
+  // iterate over all contiguous entries in compact array a
+  if (gid < size) {
+    // convert global index to real index in non-compact array out
+    size_t global_index = gid;
+    size_t real_index = offset;
+    for (size_t i=0; i<shape.size; ++i) {
+      real_index += global_index / compact_strides.data[i] * strides.data[i];
+      global_index %= compact_strides.data[i];
+    }
+    out[gid] = a[real_index];
+  }
+  
+  
   /// END SOLUTION
 }
 
@@ -126,6 +146,41 @@ void Compact(const CudaArray& a, CudaArray* out, std::vector<int32_t> shape,
 }
 
 
+__global__ void EwiseSetitemKernel(const scalar_t* a, scalar_t* out, size_t size, CudaVec shape,
+                              CudaVec strides, size_t offset) {
+  /**
+   * The CUDA kernel for the element-wise setitem opeation. This should effectively map a single entry in the 
+   * non-compact out, to the corresponding item (at location gid) in the compact array a.
+   * 
+   * Args:
+   *   a: CUDA pointer to a array
+   *   out: CUDA point to out array
+   *   size: size of out array
+   *   shape: vector of shapes of a and out arrays (of type CudaVec, for past passing to CUDA kernel)
+   *   strides: vector of strides of out array
+   *   offset: offset of out array
+   */
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  CudaVec compact_strides;
+  compact_strides.size = shape.size;
+  for (size_t i=0; i<shape.size; ++i) {
+    compact_strides.data[i] = 1;
+    for (size_t j=i+1; j<shape.size; ++j) compact_strides.data[i] *= shape.data[j];
+  }
+
+  if (gid < size) {
+    size_t global_index = gid;
+    size_t real_index = 0;
+    for (size_t j=0; j<shape.size; ++j) {
+      real_index += global_index / compact_strides.data[j] * strides.data[j];
+      global_index %= compact_strides.data[j];
+    }
+    out[real_index+offset] = a[gid];
+  }
+
+
+}
+
 
 void EwiseSetitem(const CudaArray& a, CudaArray* out, std::vector<int32_t> shape,
                   std::vector<int32_t> strides, size_t offset) {
@@ -141,11 +196,32 @@ void EwiseSetitem(const CudaArray& a, CudaArray* out, std::vector<int32_t> shape
    *   offset: offset of the *out* array (not a, which has zero offset, being compact)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  // use the size of a here since in this function a is the compact array
+  CudaDims dim = CudaOneDim(a.size);
+  EwiseSetitemKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, a.size, VecToCuda(shape), VecToCuda(strides), offset);
   /// END SOLUTION
 }
 
+__global__ void ScalarSetitemKernel(size_t size, scalar_t val, scalar_t* out, CudaVec shape, 
+                                    CudaVec strides, size_t offset) {
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  CudaVec compact_strides;
+  compact_strides.size = shape.size;
+  for (size_t i=0; i<shape.size; ++i) {
+    compact_strides.data[i] = 1;
+    for (size_t j=i+1; j<shape.size; ++j) compact_strides.data[i] *= shape.data[j];
+  }
 
+  if (gid < size) {
+    size_t global_index = gid;
+    size_t real_index = 0;
+    for (size_t j=0; j<shape.size; ++j) {
+      real_index += global_index / compact_strides.data[j] * strides.data[j];
+      global_index %= compact_strides.data[j];
+    }
+    out[real_index+offset] = val;
+  }
+}
 
 void ScalarSetitem(size_t size, scalar_t val, CudaArray* out, std::vector<int32_t> shape,
                    std::vector<int32_t> strides, size_t offset) {
@@ -163,7 +239,8 @@ void ScalarSetitem(size_t size, scalar_t val, CudaArray* out, std::vector<int32_
    *   offset: offset of the out array
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  CudaDims dim = CudaOneDim(size);
+  ScalarSetitemKernel<<<dim.grid, dim.block>>>(size, val, out->ptr, VecToCuda(shape), VecToCuda(strides), offset);
   /// END SOLUTION
 }
 
@@ -221,6 +298,27 @@ void ScalarAdd(const CudaArray& a, scalar_t val, CudaArray* out) {
 ////////////////////////////////////////////////////////////////////////////////
 // Elementwise and scalar operations
 ////////////////////////////////////////////////////////////////////////////////
+#define FOR_EACH_WITH_INDEX(array, index, item, length) \
+  for ((index) = 0; (index) < (length) && ((item) = (array)[(index)], 1); ++(index))
+
+__global__ void EwiseMulKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t size) {
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) {
+    out[gid] = a[gid] * b[gid];
+  }
+}
+
+
+void EwiseMul(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  /**
+   * Set the entries in out to be sum of the corresponding entries in a and b
+  */
+  CudaDims dim = CudaOneDim(a.size);
+  EwiseMulKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, a.size);
+}
+
+
+
 
 
 void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, uint32_t N,

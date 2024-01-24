@@ -80,7 +80,7 @@ void Compact(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shap
   for (size_t i=0; i<total_size; ++i) {
     // convert the global index to multi-dimensional index
     size_t global_index = i;
-    size_t real_index = 0;                  
+    size_t real_index = 0;
     for (size_t j=0; j<shape.size(); ++j) {
       real_index += global_index / pseudo_strides[j] * strides[j];
       global_index %= pseudo_strides[j];
@@ -329,7 +329,9 @@ void EwiseTanh(const AlignedArray& a, AlignedArray* out) {
   }
 }
 
-
+// declare the tiled matmul s.t. we can call it inside matmul function
+void MatmulTiled(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uint32_t m,
+                 uint32_t n, uint32_t p);
 
 
 void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uint32_t m, uint32_t n,
@@ -346,7 +348,8 @@ void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uin
    *   n: columns of a / rows of b
    *   p: columns of b / out
    */
-
+  // MatmulTiled(a, b, out, m, n, p);
+  // return ;
   /// BEGIN SOLUTION
   for (size_t i=0; i<m; ++i) {
     for (size_t j=0; j<p; ++j) {
@@ -385,7 +388,13 @@ inline void AlignedDot(const float* __restrict__ a,
   out = (float*)__builtin_assume_aligned(out, TILE * ELEM_SIZE);
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (size_t m=0; m<TILE; ++m) {
+    for (size_t n=0; n<TILE; ++n) {
+      for(size_t k=0; k<TILE; ++k) {
+        out[m*TILE+n] += a[m*TILE+k] * b[k*TILE + n];
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -411,7 +420,42 @@ void MatmulTiled(const AlignedArray& a, const AlignedArray& b, AlignedArray* out
    *
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+
+  // initialize out to be zeros
+  Fill(out, 0);
+  // for tiled rows of a
+  for (size_t i=0; i<m/TILE; ++i) {
+    // for tiled cols of b
+    for (size_t j=0; j<p/TILE; ++j) {
+      // initialize c_t with zeros
+      float c_t[TILE*TILE];
+      for (size_t ci=0; ci<TILE*TILE; ++ci) c_t[ci] = 0;
+      // for tiled cols of a (also tiled rows of b)
+      for (size_t k=0; k<n/TILE; ++k) {
+        float a_t[TILE*TILE];
+        // initialize a_t with corresponding entries in a
+        for (size_t ai=0; ai<TILE; ++ai) {
+          for (size_t aj=0; aj<TILE; ++aj) {
+            a_t[ai*TILE + aj] = a.ptr[i*n*TILE + k*TILE*TILE + ai*TILE + aj];
+          }
+        }
+        float b_t[TILE*TILE];
+        // initialize b_t with corresponding entries in a
+        for (size_t bi=0; bi<TILE; ++bi) {
+          for (size_t bj=0; bj<TILE; ++bj) {
+            b_t[bi*TILE + bj] = b.ptr[k*p*TILE + j*TILE*TILE + bi*TILE + bj];
+          }
+        }
+        AlignedDot(a_t, b_t, c_t);  
+      }
+      // calculation done, assign values in c_t to out
+      for (size_t ci=0; ci<TILE; ++ci) {
+        for (size_t cj=0; cj<TILE; ++cj) {
+          out->ptr[i*p*TILE + j*TILE*TILE + ci*TILE + cj] = c_t[ci*TILE + cj];
+        }
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -426,7 +470,13 @@ void ReduceMax(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (size_t i=0; i<out->size; ++i) {
+    scalar_t max_val = a.ptr[i*reduce_size];
+    for (size_t j=0; j<reduce_size; ++j) {
+      if (a.ptr[i*reduce_size + j] > max_val) max_val = a.ptr[i*reduce_size + j];
+    }
+    out->ptr[i] = max_val;
+  }
   /// END SOLUTION
 }
 
@@ -441,7 +491,13 @@ void ReduceSum(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (size_t i=0; i<out->size; ++i) {
+    scalar_t sum_val = 0;
+    for (size_t j=0; j<reduce_size; ++j) {
+      sum_val += a.ptr[i*reduce_size + j];
+    }
+    out->ptr[i] = sum_val;
+  }
   /// END SOLUTION
 }
 
@@ -504,8 +560,8 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
   m.def("ewise_tanh", EwiseTanh);
 
   m.def("matmul", Matmul);
-  // m.def("matmul_tiled", MatmulTiled);
+  m.def("matmul_tiled", MatmulTiled);
 
-  // m.def("reduce_max", ReduceMax);
-  // m.def("reduce_sum", ReduceSum);
+  m.def("reduce_max", ReduceMax);
+  m.def("reduce_sum", ReduceSum);
 }
