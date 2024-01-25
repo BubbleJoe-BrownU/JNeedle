@@ -13,11 +13,10 @@ TENSOR_COUNTER = 0
 
 # NOTE: we will import numpy as the array_api
 # as the backend for our computations, this line will change in later homeworks
-
 import numpy as array_api
+
 NDArray = numpy.ndarray
 
-from .backend_selection import array_api, NDArray, default_device
 
 class Op:
     """Operator definition."""
@@ -188,7 +187,7 @@ class TensorTuple(Value):
 
     def detach(self):
         """Create a new tensor that shares the data but detaches from the graph."""
-        return TensorTuple.make_const(self.realize_cached_data())
+        return Tuple.make_const(self.realize_cached_data())
 
 
 class Tensor(Value):
@@ -216,7 +215,7 @@ class Tensor(Value):
                     array.numpy(), device=device, dtype=dtype
                 )
         else:
-            device = device if device else default_device()
+            device = device if device else cpu()
             cached_data = Tensor._array_from_numpy(array, device=device, dtype=dtype)
 
         self._init(
@@ -379,9 +378,27 @@ def compute_gradient_of_variables(output_tensor, out_grad):
 
     # Traverse graph in reverse topological order given the output_node that we are taking gradient wrt.
     reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
+    for node in reverse_topo_order:
+        # print([i.shape for i in node.inputs])
+        # sum up the gradient contributions from each adjoint gradient
+        node_grad = sum_node_list(node_to_output_grads_list[node])
+        # store the gradient in the grad field of the node
+        node.grad = node_grad
+        # the inputs list is an empty list if there's no inputs, in the case where the node is an input or output tensor
+        if len(node.inputs) > 0:
+            # compute the gradient ajoint for each input node
+            input_grad_adjoints = node.op.gradient_as_tuple(node_grad, node)
+            # map each input node to its gradient contribution
+            for i, input_node in enumerate(node.inputs):
+                input_grad_adjoint = input_grad_adjoints[i]
+                if input_node not in node_to_output_grads_list:
+                    node_to_output_grads_list[input_node] = [input_grad_adjoint]
+                else:
+                    node_to_output_grads_list[input_node].append(input_grad_adjoint)
+
 
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+
     ### END YOUR SOLUTION
 
 
@@ -394,14 +411,32 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
     sort.
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    visited = set()
+    topo_order = []
+    for node in node_list:
+        topo_sort_dfs(node, visited, topo_order)
+
+    return topo_order
     ### END YOUR SOLUTION
 
+
+
+
+    
 
 def topo_sort_dfs(node, visited, topo_order):
     """Post-order DFS"""
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    if node.inputs is None:
+        visited.add(node)
+        topo_order.append(node)
+        return
+    for input_node in node.inputs:
+        if input_node not in visited:
+            topo_sort_dfs(input_node, visited, topo_order)
+    # put the internal node into topo_order after all its input nodes are visited
+    visited.add(node)
+    topo_order.append(node)
     ### END YOUR SOLUTION
 
 
