@@ -655,6 +655,8 @@ _Python_INCLUDE_DIR:INTERNAL=/home/jay/anaconda3/envs/dlsys/include/python3.10
 //Python Properties
 _Python_INTERPRETER_PROPERTIES:INTERNAL=Python;3;10;13;64;;cpython-310-x86_64-linux-gnu;abi3;/home/jay/anaconda3/envs/dlsys/lib/python3.10;/home/jay/anaconda3/envs/dlsys/lib/python3.10;/home/jay/anaconda3/envs/dlsys/lib/python3.10/site-packages;/home/jay/anaconda3/envs/dlsys/lib/python3.10/site-packages
 _Python_INTERPRETER_SIGNATURE:INTERNAL=079bdc6c46b5ae6160cc0c6ca2a445ba
+//Interpreter reason failure
+_Python_Interpreter_REASON_FAILURE:INTERNAL=
 //Path to a library.
 _Python_LIBRARY_RELEASE:INTERNAL=/home/jay/anaconda3/envs/dlsys/lib/libpython3.10.so
 //NumPy reason failure
