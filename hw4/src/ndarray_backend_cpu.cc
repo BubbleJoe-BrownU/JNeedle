@@ -62,7 +62,31 @@ void Compact(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shap
    *  function will implement here, so we won't repeat this note.)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  // TODO: Unify identifier and increase readability  
+  size_t total_size = 1;
+  for (auto i: shape) {
+    total_size *= i;
+  }
+  // construct pseudo strides from shape as if out is a compact array
+  std::vector<int32_t> pseudo_strides(shape.size());
+  for (size_t i=0; i<shape.size(); ++i) {
+    pseudo_strides[i] = 1;
+    for (size_t j=i+1; j<shape.size(); ++j) pseudo_strides[i] *= shape[j];
+  }
+  assert (pseudo_strides[0]*shape[0] == total_size);
+  // assert (total_size == a.size && "size not equal");
+  // to make an dimension-agnostic implementation
+  // we iterate over a flat size, and use the shape to calculate the exact index
+  for (size_t i=0; i<total_size; ++i) {
+    // convert the global index to multi-dimensional index
+    size_t global_index = i;
+    size_t real_index = 0;
+    for (size_t j=0; j<shape.size(); ++j) {
+      real_index += global_index / pseudo_strides[j] * strides[j];
+      global_index %= pseudo_strides[j];
+    }
+    out->ptr[i] = a.ptr[real_index+offset];
+  }
   /// END SOLUTION
 }
 
@@ -79,7 +103,28 @@ void EwiseSetitem(const AlignedArray& a, AlignedArray* out, std::vector<int32_t>
    *   offset: offset of the *out* array (not a, which has zero offset, being compact)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  // assert(false && "Not Implemented");
+  size_t total_size = 1;
+  for (auto i: shape) {
+    total_size *= i;
+  }
+  // construct pseudo strides from shape as if out is a compact array
+  std::vector<int32_t> pseudo_strides(shape.size());
+  for (size_t i=0; i<shape.size(); ++i) {
+    pseudo_strides[i] = 1;
+    for (size_t j=i+1; j<shape.size(); ++j) pseudo_strides[i] *= shape[j];
+  }
+  // printf("total size from shape:%ld\ntotal size from quering a:%ld", total_size, a.size);
+  for (size_t i=0; i<total_size; ++i) {
+    size_t global_index = i;
+    // convert the global index to strided index
+    size_t real_index = 0;
+    for (size_t j=0; j<shape.size(); ++j) {
+      real_index += global_index / pseudo_strides[j]* strides[j];
+      global_index %= pseudo_strides[j];
+    }
+    out->ptr[real_index+offset] = a.ptr[i];
+  }
   /// END SOLUTION
 }
 
@@ -100,7 +145,23 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out, std::vect
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  // assert(false && "Not Implemented");
+  // construct pseudo strides from shape as if out is a compact array
+  std::vector<int32_t> pseudo_strides(shape.size());
+  for (size_t i=0; i<shape.size(); ++i) {
+    pseudo_strides[i] = 1;
+    for (size_t j=i+1; j<shape.size(); ++j) pseudo_strides[i] *= shape[j];
+  }
+  // printf("size passed in: %d\nsize calculated: %d", size, shape[0]*pseudo_strides[0]);
+  for (size_t i=0; i<size; ++i) {
+    size_t global_index = i;
+    size_t real_index = 0;
+    for (size_t j=0; j<shape.size(); ++j) {
+      real_index += global_index / pseudo_strides[j] * strides[j];
+      global_index %= pseudo_strides[j];
+    }
+    out->ptr[real_index + offset] = val;
+  }
   /// END SOLUTION
 }
 
@@ -122,7 +183,6 @@ void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
   }
 }
 
-
 /**
  * In the code the follows, use the above template to create analogous element-wise
  * and and scalar operators for the following functions.  See the numpy backend for
@@ -143,6 +203,136 @@ void ScalarAdd(const AlignedArray& a, scalar_t val, AlignedArray* out) {
  * signatures above.
  */
 
+void EwiseMul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  /**
+   * Set entries in out to be the product of corresponding entry in a and b.
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] * b.ptr[i];
+  }
+ }
+
+void ScalarMul(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entries in out to be the product of corresponding entry in a and the scalar val.
+   */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] * val;
+  }
+ }
+
+void EwiseDiv(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  /**
+   * Set entries in out to be the quotient of corresponding entry in a and b.
+   */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] / b.ptr[i];
+  }
+}
+
+void ScalarDiv(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entries in out to be the quotient of corresponding entry in a and scalar value val.
+   */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] / val;
+  }
+}
+
+void ScalarPower(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entries in out to be the power of corresponding entry in a and scalar value val.
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = pow(a.ptr[i], val);
+  }
+}
+
+void EwiseMaximum(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  /**
+   * Set entrie in out to be the maximum of corresponding entries in a and b.
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = (a.ptr[i] > b.ptr[i] ? a.ptr[i] : b.ptr[i]);
+  }
+}
+
+void ScalarMaximum(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entries in out to be the maximum of corresponding entries in a and scalar value val.
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = (a.ptr[i] > val ? a.ptr[i] : val);
+  }
+}
+
+void EwiseEq(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  /**
+   * Set entries in out to be boolean values indicating whether corresponding entries in a and b are equal
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] == b.ptr[i];
+  }
+}
+
+void ScalarEq(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entris in out to be boolean values indicating whether corresponding entries in a are equal to the scalar value val
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] == val;
+  }
+}
+
+void EwiseGe(const AlignedArray& a, const AlignedArray& b, AlignedArray* out) {
+  /**
+   * Set entries in out to be boolean values indicating whether corresponding entries in a are greater than or equal to those in b
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] >= b.ptr[i];
+  }
+}
+
+void ScalarGe(const AlignedArray& a, scalar_t val, AlignedArray* out) {
+  /**
+   * Set entries in out to be boolean values indicating whether corresponding entries in a are greater than or equal to the scalar value val
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = a.ptr[i] >= val;
+  }
+}
+
+void EwiseLog(const AlignedArray& a, AlignedArray* out) {
+  /**
+   * Set entries in out to be logarithm of corresponding entries in a 
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = log(a.ptr[i]);
+  }
+}
+
+void EwiseExp(const AlignedArray& a, AlignedArray* out) {
+  /**
+   * Set entries in out to be exponential of corresponding entries in a
+  */
+  for (size_t i=0; i<a.size; ++i) {
+    out->ptr[i] = exp(a.ptr[i]);
+  }
+}
+
+void EwiseTanh(const AlignedArray& a, AlignedArray* out) {
+  /**
+   * Set entries in out to be tangent hyperbolic of corresponding entries in a
+  */
+  for (size_t i; i<a.size; ++i) {
+    out->ptr[i] = tanh(a.ptr[i]);
+  }
+}
+
+// declare the tiled matmul s.t. we can call it inside matmul function
+void MatmulTiled(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uint32_t m,
+                 uint32_t n, uint32_t p);
+
 
 void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uint32_t m, uint32_t n,
             uint32_t p) {
@@ -158,9 +348,17 @@ void Matmul(const AlignedArray& a, const AlignedArray& b, AlignedArray* out, uin
    *   n: columns of a / rows of b
    *   p: columns of b / out
    */
-
+  // MatmulTiled(a, b, out, m, n, p);
+  // return ;
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (size_t i=0; i<m; ++i) {
+    for (size_t j=0; j<p; ++j) {
+      out->ptr[i*p + j] = 0;
+      for (size_t k=0; k<n; ++k) {
+        out->ptr[i*p + j] += a.ptr[i*n + k] * b.ptr[k*p + j];
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -190,7 +388,13 @@ inline void AlignedDot(const float* __restrict__ a,
   out = (float*)__builtin_assume_aligned(out, TILE * ELEM_SIZE);
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (size_t m=0; m<TILE; ++m) {
+    for (size_t n=0; n<TILE; ++n) {
+      for(size_t k=0; k<TILE; ++k) {
+        out[m*TILE+n] += a[m*TILE+k] * b[k*TILE + n];
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -216,7 +420,42 @@ void MatmulTiled(const AlignedArray& a, const AlignedArray& b, AlignedArray* out
    *
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+
+  // initialize out to be zeros
+  Fill(out, 0);
+  // for tiled rows of a
+  for (size_t i=0; i<m/TILE; ++i) {
+    // for tiled cols of b
+    for (size_t j=0; j<p/TILE; ++j) {
+      // initialize c_t with zeros
+      float c_t[TILE*TILE];
+      for (size_t ci=0; ci<TILE*TILE; ++ci) c_t[ci] = 0;
+      // for tiled cols of a (also tiled rows of b)
+      for (size_t k=0; k<n/TILE; ++k) {
+        float a_t[TILE*TILE];
+        // initialize a_t with corresponding entries in a
+        for (size_t ai=0; ai<TILE; ++ai) {
+          for (size_t aj=0; aj<TILE; ++aj) {
+            a_t[ai*TILE + aj] = a.ptr[i*n*TILE + k*TILE*TILE + ai*TILE + aj];
+          }
+        }
+        float b_t[TILE*TILE];
+        // initialize b_t with corresponding entries in a
+        for (size_t bi=0; bi<TILE; ++bi) {
+          for (size_t bj=0; bj<TILE; ++bj) {
+            b_t[bi*TILE + bj] = b.ptr[k*p*TILE + j*TILE*TILE + bi*TILE + bj];
+          }
+        }
+        AlignedDot(a_t, b_t, c_t);  
+      }
+      // calculation done, assign values in c_t to out
+      for (size_t ci=0; ci<TILE; ++ci) {
+        for (size_t cj=0; cj<TILE; ++cj) {
+          out->ptr[i*p*TILE + j*TILE*TILE + ci*TILE + cj] = c_t[ci*TILE + cj];
+        }
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -231,7 +470,13 @@ void ReduceMax(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (size_t i=0; i<out->size; ++i) {
+    scalar_t max_val = a.ptr[i*reduce_size];
+    for (size_t j=0; j<reduce_size; ++j) {
+      if (a.ptr[i*reduce_size + j] > max_val) max_val = a.ptr[i*reduce_size + j];
+    }
+    out->ptr[i] = max_val;
+  }
   /// END SOLUTION
 }
 
@@ -246,7 +491,13 @@ void ReduceSum(const AlignedArray& a, AlignedArray* out, size_t reduce_size) {
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  for (size_t i=0; i<out->size; ++i) {
+    scalar_t sum_val = 0;
+    for (size_t j=0; j<reduce_size; ++j) {
+      sum_val += a.ptr[i*reduce_size + j];
+    }
+    out->ptr[i] = sum_val;
+  }
   /// END SOLUTION
 }
 
@@ -287,6 +538,9 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
   m.def("scalar_setitem", ScalarSetitem);
   m.def("ewise_add", EwiseAdd);
   m.def("scalar_add", ScalarAdd);
+
+  // register finished function in the pybind module
+  
 
   m.def("ewise_mul", EwiseMul);
   m.def("scalar_mul", ScalarMul);
